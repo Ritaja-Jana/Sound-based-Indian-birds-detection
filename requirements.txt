@@ -1,0 +1,8 @@
+librosa
+pickle5
+tensorflow
+flask
+scikit-learn
+numpy
+requests
+pandas

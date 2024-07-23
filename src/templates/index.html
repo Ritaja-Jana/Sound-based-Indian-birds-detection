@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bird Call Classification</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        h1 {
+            font-size: 2.5em;
+        }
+        .probability {
+            font-weight: bold;
+            color: green;
+        }
+        .bird-name {
+            font-weight: bold;
+            color: rgb(242, 45, 42);
+        }
+        .upload-button {
+            background: linear-gradient(to right, #1e90ff, #00bfff); /* Gradient blue */
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .upload-button:hover {
+            background: linear-gradient(to right, #00bfff, #1e90ff);
+        }
+        .result {
+            font-size: 1.5em;
+            margin-top: 20px;
+        }
+        .bird-description {
+            font-weight: bold;
+            font-size: 0.75em;
+            margin-top: 30px;
+            color: #1b1b1b;
+            font-style: italic;
+        }
+        img {
+            margin-top: 20px;
+            width: 400px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Find out what bird is singing nearby!</h1>
+    <p>Upload an audio file to discover.</p>
+    <form method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".mp3">
+        <input type="submit" value="Upload" class="upload-button">
+    </form>
+    <div class="result">
+        <p>{{ result|safe }}</p>
+        {% if image_url %}
+            <img src="{{ image_url }}" alt="Bird Image">
+        {% endif %}
+        {% if bird_description %}
+            <p class="bird-description">{{ bird_description }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>
