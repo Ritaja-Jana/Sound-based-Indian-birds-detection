@@ -1,43 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bird Call Classification</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
     <style>
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Roboto', sans-serif;
             text-align: center;
             padding: 50px;
+            background-size: cover;
+            color: #333;
+            background: linear-gradient(to right, #BFF098, #6FD6FF);
         }
+
         h1 {
             font-size: 2.5em;
+            margin-bottom: 10px;
+            animation: fadeInDown 1s;
         }
+
         .probability {
             font-weight: bold;
             color: green;
         }
+
         .bird-name {
             font-weight: bold;
             color: rgb(242, 45, 42);
         }
+
+        p {
+            font-size: 1.2em;
+            margin: 20px 0;
+            animation: fadeInUp 1s;
+        }
+
         .upload-button {
-            background: linear-gradient(to right, #1e90ff, #00bfff); /* Gradient blue */
+            background: linear-gradient(to right, #1e90ff, #00bfff);
             border: none;
             color: white;
             padding: 15px 30px;
             font-size: 16px;
             cursor: pointer;
             border-radius: 5px;
-            transition: background 0.3s ease;
+            transition: background 0.3s ease, transform 0.3s ease;
+            margin: 10px;
+            animation: fadeInUp 1s;
         }
+
         .upload-button:hover {
             background: linear-gradient(to right, #00bfff, #1e90ff);
+            transform: scale(1.05);
         }
+
         .result {
             font-size: 1.5em;
             margin-top: 20px;
+            animation: fadeIn 1s;
         }
+
         .bird-description {
             font-weight: bold;
             font-size: 0.75em;
@@ -45,28 +69,414 @@
             color: #1b1b1b;
             font-style: italic;
         }
+
         img {
             margin-top: 20px;
             width: 400px;
             height: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            animation: fadeIn 1s;
+        }
+
+        .loading {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 20px auto;
+        }
+
+        .error {
+            color: red;
+            margin-top: 20px;
+            animation: fadeIn 1s;
+        }
+
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px;
+            background: white;
+            border: 2px solid #333;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 10;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 600px;
+        }
+
+        .popup p {
+            margin: 0;
+            font-size: 1.2em;
+        }
+
+        .popup-button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #1e90ff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .popup-button:hover {
+            background: #00bfff;
+        }
+
+        .waveform-container {
+            margin-top: 20px;
+        }
+
+        .waveform {
+            width: 100%;
+            height: 100px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .waveform::after {
+            content: "Recording...";
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #333;
+            font-weight: bold;
+            z-index: 2;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .waveform canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .image-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }   
+
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body>
     <h1>Find out what bird is singing nearby!</h1>
-    <p>Upload an audio file to discover.</p>
-    <form method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".mp3">
+    <!-- <p>Upload an audio file to discover.</p>
+    <form id="uploadForm" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".wav">
         <input type="submit" value="Upload" class="upload-button">
-    </form>
+    </form> -->
+
+    <p>Record live audio to discover:</p>
+    <button id="recordButton" class="upload-button">Record</button>
     <div class="result">
-        <p>{{ result|safe }}</p>
-        {% if image_url %}
-            <img src="{{ image_url }}" alt="Bird Image">
-        {% endif %}
-        {% if bird_description %}
-            <p class="bird-description">{{ bird_description }}</p>
-        {% endif %}
+        <p id="result"></p>
+        <div class="image-container">
+            <img id="birdImage" src="" alt="Bird Image" style="display: none;">
+        </div>
+        <p id="birdDescription" class="bird-description" style="display: none;"></p>
     </div>
+    
+    <div id="error" class="error"></div>
+
+    <div id="recordingPopup" class="popup">
+        <div class="waveform-container">
+            <div class="waveform" id="waveform"></div>
+        </div>
+        <button id="closePopupButton" class="popup-button">Close</button>
+    </div>
+
+    <script>
+        let chunks = [];
+        let recorder;
+        let audioContext;
+        let gumStream;
+        let recordingStartTime;
+        let recordingInterval;
+        const chunkDuration = 3000; // 6 seconds
+        const maxRecordingTime = 6000; // 20 seconds
+
+        const recordButton = document.getElementById('recordButton');
+        const recordingPopup = document.getElementById('recordingPopup');
+        const closePopupButton = document.getElementById('closePopupButton');
+        const waveformContainer = document.getElementById('waveform');
+        const errorDiv = document.getElementById('error');
+
+        recordButton.addEventListener('click', startRecording);
+        closePopupButton.addEventListener('click', stopRecording);
+
+        async function startRecording() {
+            try {
+                recordButton.disabled = true;
+                errorDiv.innerText = '';
+
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gumStream = stream;
+                const input = audioContext.createMediaStreamSource(stream);
+                recorder = new MediaRecorder(stream);
+
+                recorder.ondataavailable = event => {
+                    chunks.push(event.data);
+                    console.log('Chunk recorded:', event.data.size, 'bytes');
+                };
+
+                recorder.onstop = () => {
+                    console.log('Recording stopped');
+                    processChunks();
+                };
+
+                recorder.start();
+                showPopup();
+                startWaveformVisualization(input);
+
+                recordingStartTime = Date.now();
+
+                // Start processing audio in 6-second chunks
+                recordingInterval = setInterval(() => {
+                    const elapsedTime = Date.now() - recordingStartTime;
+                    if (elapsedTime >= maxRecordingTime) {
+                        console.log('Stopping recording due to max time reached');
+                        stopRecording();
+                    } else {
+                        checkRecording();
+                    }
+                }, chunkDuration);
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                recordButton.disabled = false;
+                errorDiv.innerText = 'An error occurred while accessing your microphone. Please try again.';
+            }
+        }
+
+        function checkRecording() {
+            if (chunks.length > 0) {
+                const blob = new Blob(chunks, { type: 'audio/wav' });
+                chunks = [];
+
+                const formData = new FormData();
+                formData.append('audio_data', blob, 'live_audio.wav');
+
+                fetch('/live_process', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.bird_name) {
+                        console.log('Bird detected:', data);
+                        clearInterval(recordingInterval);
+                        stopRecording();
+                        displayResult(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during live processing:', error);
+                });
+            }
+        }
+
+        function processChunks() {
+            const blob = new Blob(chunks, { type: 'audio/wav' });
+            const formData = new FormData();
+            formData.append('audio_data', blob, 'live_audio.wav');
+
+            fetch('/live_process', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.bird_name) {
+                    displayResult(data);
+                } else {
+                    errorDiv.innerText = 'Could not identify the bird. Please try again.';
+                }
+            })
+            .catch(error => {
+                console.error('Error during processing:', error);
+                errorDiv.innerText = 'An error occurred while processing the audio. Please try again.';
+            })
+            .finally(() => {
+                recordButton.disabled = false;
+                hidePopup();
+            });
+        }
+
+        function stopRecording() {
+            if (recorder && recorder.state !== 'inactive') {
+                recorder.stop();
+                gumStream.getTracks().forEach(track => track.stop());
+            }
+            clearInterval(recordingInterval);
+            hidePopup();
+            clearResult(); // Clear the result when stopping
+        }
+
+        function displayResult(data) {
+            const result = document.getElementById('result');
+            const birdImage = document.getElementById('birdImage');
+            const birdDescription = document.getElementById('birdDescription');
+            if (parseFloat(data.probability) > 50) {
+                result.innerHTML = `There is a ${data.probability} chance that your bird is <span class="bird-name">${data.bird_name}</span>!`;
+                if (data.image_url) {
+                birdImage.src = data.image_url;
+                birdImage.style.display = 'block';
+            } else {
+                birdImage.style.display = 'none';
+            }
+
+            if (data.bird_description) {
+                birdDescription.innerText = data.bird_description;
+                birdDescription.style.display = 'block';
+            } else {
+                birdDescription.style.display = 'none';
+
+            }
+            }
+            else if (parseFloat(data.probability) < 0)
+            {
+                result.innerHTML = `Oops! Human voice detected! Please try again!`;
+                birdImage.src = data.image_url;
+                birdImage.style.display = 'block';
+            }
+            else {
+                result.innerHTML = `Sorry, we couldn't detect any bird! Please try again!`;
+                birdImage.src = data.image_url;
+                birdImage.style.display = 'block';
+            
+               
+            
+
+            }
+        }
+
+        function clearResult() {
+            const result = document.getElementById('result');
+            const birdImage = document.getElementById('birdImage');
+            const birdDescription = document.getElementById('birdDescription');
+
+            result.innerHTML = '';
+            birdImage.style.display = 'none';
+            birdDescription.style.display = 'none';
+        }
+
+        function showPopup() {
+            recordingPopup.style.display = 'block';
+        }
+
+        function hidePopup() {
+            recordingPopup.style.display = 'none';
+        }
+
+        function startWaveformVisualization(input) {
+            const analyser = audioContext.createAnalyser();
+            input.connect(analyser);
+
+            const canvas = document.createElement('canvas');
+            const canvasCtx = canvas.getContext('2d');
+            waveformContainer.appendChild(canvas);
+
+            analyser.fftSize = 2048;
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            canvas.width = waveformContainer.clientWidth;
+            canvas.height = waveformContainer.clientHeight;
+
+            function draw() {
+                if (recorder.state === 'inactive') return;
+
+                requestAnimationFrame(draw);
+
+                analyser.getByteTimeDomainData(dataArray);
+                canvasCtx.fillStyle = '#f5f5f5';
+                canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+                canvasCtx.lineWidth = 2;
+                canvasCtx.strokeStyle = '#00bfff';
+
+                canvasCtx.beginPath();
+
+                const sliceWidth = canvas.width / bufferLength;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = (v * canvas.height) / 2;
+
+                    if (i === 0) {
+                        canvasCtx.moveTo(x, y);
+                    } else {
+                        canvasCtx.lineTo(x, y);
+                    }
+
+                    x += sliceWidth;
+                }
+
+                canvasCtx.lineTo(canvas.width, canvas.height / 2);
+                canvasCtx.stroke();
+            }
+
+            draw();
+        }
+    </script>
 </body>
+
 </html>
