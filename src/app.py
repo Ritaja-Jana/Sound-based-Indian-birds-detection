@@ -3,27 +3,30 @@ import numpy as np
 import pickle
 from flask import Flask, request, render_template, jsonify
 import tensorflow as tf
-from sklearn.preprocessing import LabelEncoder
+import tensorflow_hub as hub
 import librosa
 import logging
 
-app = Flask(__name__)
+app = Flask(_name_)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Define constants
-MODEL_PATH = os.path.join('src', 'model', 'simple_bird_call_model.keras')
-LABEL_ENCODER_PATH = os.path.join('src', 'model', 'simple_label_encoder.pkl')
+LABEL_ENCODER_PATH = os.path.join('src', 'model', 'fcnn_label_encoder.pkl')
+MODEL_PATH = os.path.join('src', 'model', 'fcnn_bird_call_model.keras')
+
+
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'.wav', '.mp3'}
-TEMPERATURE = 0.25 # Adjust this value for best performance
+TEMPERATURE = 0.25  # Adjust this value for best performance
 
 # Ensure upload directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Load the model and label encoder
+# Load YAMNet model and fine-tuned model
 try:
+    yamnet_model = hub.load("https://www.kaggle.com/models/google/yamnet/TensorFlow2/yamnet/1")
     model = tf.keras.models.load_model(MODEL_PATH)
     with open(LABEL_ENCODER_PATH, 'rb') as file:
         label_encoder = pickle.load(file)
@@ -31,13 +34,6 @@ except Exception as e:
     logging.error(f"Error loading model or label encoder: {e}")
     raise
 
-# Bird descriptions dictionary
-bird_descriptions = {
-    "Indian Peafowl": "A large, colorful bird...",
-    "House Sparrow": "A small, adaptable bird...",
-    "Common Myna": "A medium-sized bird...",
-    "Asian Koel": "A melodious bird...",
-}
 
 def allowed_file(filename):
     return '.' in filename and os.path.splitext(filename.lower())[1] in ALLOWED_EXTENSIONS
@@ -51,18 +47,18 @@ def remove_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
 
-SAMPLE_RATE = 22050
-NUM_MFCC = 100
-
+# Function to preprocess audio and extract embeddings
 def preprocess_audio(file_path):
     try:
-        audio, sr = librosa.load(file_path, sr=SAMPLE_RATE)
-        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=NUM_MFCC)
-        return np.mean(mfccs, axis=1)  # Return mean MFCCs
+        audio, sr = librosa.load(file_path, sr=16000)  # YAMNet expects 16 kHz audio
+        scores, embeddings, spectrogram = yamnet_model(audio)
+        embedding_mean = tf.reduce_mean(embeddings, axis=0).numpy()
+        # Normalize embeddings
+        normalized_embedding = (embedding_mean - np.mean(embedding_mean)) / np.std(embedding_mean)
+        return normalized_embedding
     except Exception as e:
-        logging.error(f"Error processing {file_path}: {e}")
+        print(f"Error processing {file_path}: {e}")
         return None
-
 
 @app.route('/', methods=['GET'])
 def index():
@@ -80,50 +76,48 @@ def live_process():
     file_path = save_file(audio_data, 'live_audio.wav')
     features = preprocess_audio(file_path)
     
+    # Remove the uploaded file after processing
+    remove_file(file_path)
+
     # Check if features are None
     if features is None:
         logging.error("No features extracted.")
-        return "No bird detected", 0.0
+        return jsonify({"error": "No bird detected"}), 200
     
     # Reshape features to match expected model input
-    if features.shape != (NUM_MFCC,):
-        logging.error(f"Feature shape mismatch: got {features.shape}, expected {(NUM_MFCC,)}")
-        return "No bird detected", 0.0
-    
-    #logging.info(f"Adjusted feature shape: {features.shape}, Expected shape: {model.input_shape[1:]}")
-    
     features = np.expand_dims(features, axis=0)  # Add batch dimension
-    
-    # Proceed with prediction
+
+    # Predict using the fine-tuned model
     logits = model.predict(features)
-    
-    # Temperature scaling and softmax
-    scaled_logits = logits / TEMPERATURE
-    probabilities = tf.nn.softmax(scaled_logits)
-    
-    predicted_class = np.argmax(probabilities, axis=1)
-    best_probability = probabilities.numpy()[0][predicted_class[0]] * 100
+
+    # Method 1: Softmax (Standard Probability Calculation)
+    probabilities_sof = tf.nn.softmax(logits)
+    #print(f"Softmax Probabilities: {probabilities_sof.numpy()}")
+
+    # Extract the predicted class and its probability from Softmax (Method 1)
+    predicted_class = np.argmax(probabilities_sof, axis=1)
+    best_probability = probabilities_sof.numpy()[0][predicted_class[0]] * 100
+
+    print(f"Predicted class: {predicted_class}, Probability: {best_probability:.2f}%")
 
     # Check probability against the threshold
-    threshold = 50 # Adjust this threshold as needed
+    threshold = N  # Adjust this threshold as needed
     if best_probability < threshold:
         predicted_label = "No bird detected"
     else:
         predicted_label = label_encoder.inverse_transform(predicted_class)[0]
-        
-    if predicted_label == "Human":
-        best_probability = -1
 
     result = {
-        "probability": f"{best_probability:.2f}%",
+        "probability": f"{best_probability:.2f}%" if predicted_label not in ("Human", "Noise") else "5%",
         "bird_name": predicted_label,
-        "description": bird_descriptions.get(predicted_label, "Description not available."),
+        "description": None,
         "image_url": f"/static/images/birds/{predicted_label}.jpg"
     }
+
     logging.info(f"Detected bird: {predicted_label} with probability: {best_probability:.2f}%")
+    
     return jsonify(result)
 
 
-if __name__ == '__main__':
+if _name_ == '_main_':
     app.run(debug=True)
-
