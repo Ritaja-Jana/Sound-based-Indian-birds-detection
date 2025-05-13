@@ -1,5 +1,5 @@
 librosa
-pickle5
+pickle
 tensorflow
 scikit-learn
 numpy
